@@ -49,10 +49,11 @@ void move_dir(char * from_path_dir, char * to_path_dir);
 string get_file_name(string path);
 bool search_dirs(string search_path,string search_file);
 bool search(vector<string> commands_with_args);
-
+void window_resized(int sig);
 
 int main()
 {
+  signal(SIGWINCH, window_resized);
   non_canonical();
    char path[1024];
   
@@ -88,6 +89,9 @@ void getWindowSize() {
   
 }
 
+void window_resized(int sig) {
+    print_list_dirs();
+}
 
 void print_list_dirs()
 {
@@ -222,10 +226,12 @@ void restore()
     char ch;
     while(ch=cin.get()){
       
-      print_dirs();
-        if(ch==':') 
-    { 
-     command_mode();   
+      
+     if(ch==':') 
+    {  
+     
+     command_mode(); 
+    
      print_list_dirs();    
     }
     
@@ -391,15 +397,16 @@ void command_mode()
   moveTo(rows,1);
  cout<<"\x1b[K";  
     cout<< ":" ;
-// char ch[4];
-    // while(read(STDIN_FILENO, &ch, 3)>=0){
+// char ch[3];
+
+    // while(read(STDIN_FILENO, ch, 3)){
     char ch;
     while(ch=cin.get()){
-      print_list_dirs();
+      
       
     
     
-        //     if((int)ch[0]==27)  //esc
+            // if((int)ch[0]==27)  //esc
     if(ch==27)            //esc
     { 
      //  if(ch[1]='[' && (ch[2]=='A' || ch[2]=='B' || ch[2]=='C' || ch[2]=='D') ) continue;
