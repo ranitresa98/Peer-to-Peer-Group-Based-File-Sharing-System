@@ -103,7 +103,7 @@ struct dirent *direntries;
 dir = opendir(current_path);
 if (dir == NULL) {
       perror ("no directory entry");return;
-      // exit(1);
+      
 }
 
 dir_list.clear();
@@ -112,7 +112,7 @@ while ((direntries=readdir(dir)) != NULL) {
     }
     if(closedir(dir)==-1){
        perror ("close dir");return;
-      // exit(1);
+      
     }
 
   file_start=0;file_end=dir_list.size();  
@@ -302,7 +302,7 @@ void restore()
        { 
           back_trace.push(current_path);
           string str=current_path;
-           size_t found = str.find_last_of("/\\");
+           size_t found = str.find_last_of("/");
           string parent=str.substr(0,found);
           strcpy(current_path, parent.c_str()); 
           print_list_dirs();
@@ -322,7 +322,7 @@ void restore()
      else if(dir_name=="..")
     {
       string str=current_path;
-      size_t found = str.find_last_of("/\\");
+      size_t found = str.find_last_of("/");
           string parent=str.substr(0,found);
           back_trace.push(current_path);
           strcpy(current_path, parent.c_str()); 
@@ -483,7 +483,7 @@ else if(path[0]=='.')
 {final_path=string(root)+ "/";path=path.substr(1);
     if(path[0]=='.')
   { string str=current_path;
-    size_t found = str.find_last_of("/\\");
+    size_t found = str.find_last_of("/");
      final_path=str.substr(0,found);
       path=path.substr(1); }
 }
@@ -866,7 +866,7 @@ string search_path=path_form(".");
 
 string get_file_name(string path)
 {
-  size_t found = path.find_last_of("/\\");
+  size_t found = path.find_last_of("/");
   string file_name=path.substr(found+1);
   return file_name;
 }
