@@ -40,8 +40,15 @@ void remove_directory(vector<string> commands_with_args);
 void remove_file(vector<string> commands_with_args);
 void remove_directories(string path_dir);
 void rename_file(vector<string> commands_with_args);
-void move_file(vector<string> commands_with_args);
-void copy_file(vector<string> commands_with_args);
+void copy_files(vector<string> commands_with_args);
+void copy_file(char * from_path_dir, char * to_path_dir);
+void copy_dir(char * from_path_dir, char * to_path_dir);
+void move_files(vector<string> commands_with_args);
+void move_file(char * from_path_dir, char * to_path_dir);
+void move_dir(char * from_path_dir, char * to_path_dir);
+string get_file_name(string path);
+bool search_dirs(string search_path,string search_file);
+bool search(vector<string> commands_with_args);
 
 
 int main()
@@ -50,12 +57,7 @@ int main()
    char path[1024];
   
   if (getcwd(path, sizeof(path)) != NULL) {
-       
-   } else {
-       perror("pwd");
-       // exit(1);
-   }
-  
+         
    root=path;
    current_path=path;
 
@@ -64,15 +66,20 @@ int main()
    normal_navigation();
  
  restore();
-return 0;
+ }
 
+else {
+       perror("pwd");return 0;
+       // exit(1);
+   }
+   return 0;
 }
 
 
 void getWindowSize() {
   struct winsize ws;
   if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
-   perror("small screen");
+   perror("small screen");return;
   } else {
     cols = ws.ws_col;
     rows = ws.ws_row;
@@ -91,7 +98,7 @@ struct dirent *direntries;
   
 dir = opendir(current_path);
 if (dir == NULL) {
-      perror ("no directory entry");
+      perror ("no directory entry");return;
       // exit(1);
 }
 
@@ -100,7 +107,7 @@ while ((direntries=readdir(dir)) != NULL) {
   dir_list.push_back(direntries->d_name);
     }
     if(closedir(dir)==-1){
-       perror ("close dir");
+       perror ("close dir");return;
       // exit(1);
     }
 
@@ -136,7 +143,7 @@ struct stat dirinfo;
       char dirname_array[dirname.length()+1]; 
       strcpy(dirname_array, dirname.c_str()); 
       if(stat (dirname_array, &dirinfo)<0)
-      {perror(dirname_array);}
+      {perror(dirname_array);return;}
 
     char dir_name[dir_list[i].length()+1]; 
       strcpy(dir_name, dir_list[i].c_str());
@@ -193,7 +200,7 @@ new_settings.c_lflag &= ~ICANON;
 new_settings.c_lflag &= ~ECHO;
 
 if(tcsetattr(0, TCSANOW, &new_settings) != 0) {
-perror ("non_canonical");
+perror ("non_canonical");return;
 }
 }
 
@@ -319,7 +326,7 @@ void restore()
            char child_path[dirname.length()+1]; 
       strcpy(child_path, dirname.c_str()); 
       if(stat (child_path, &dirinfo)<0)
-      {perror(child_path);}
+      {perror(child_path);return;}
       if(S_ISDIR(dirinfo.st_mode))
         { 
           back_trace.push(current_path);
@@ -383,7 +390,7 @@ void command_mode()
   string command="";
   moveTo(rows,1);
  cout<<"\x1b[K";  
-    cout<< " COMMAND MODE :" ;
+    cout<< ":" ;
 // char ch[4];
     // while(read(STDIN_FILENO, &ch, 3)>=0){
     char ch;
@@ -420,7 +427,7 @@ command+=ch;
 moveTo(rows,1);
 //cout<<"\x1b[K"; 
 
-    cout<<" COMMAND MODE :"<<command;
+    cout<<":"<<command;
 }
 }
 
@@ -436,9 +443,9 @@ stringstream s (command);
         commands_with_args.push_back (item);
           }
 if(commands_with_args[0]=="copy")
-{copy_file(commands_with_args);return;}
+{copy_files(commands_with_args);return;}
 else if(commands_with_args[0]=="move")
-{move_file(commands_with_args);return;}
+{move_files(commands_with_args);return;}
 else if(commands_with_args[0]=="rename")
 {rename_file(commands_with_args);return;}
 else if(commands_with_args[0]=="create_file")
@@ -452,7 +459,8 @@ else if(commands_with_args[0]=="delete_dir")
 else if(commands_with_args[0]=="goto")
 {change_directory(commands_with_args);return;}
 else if(commands_with_args[0]=="search")
-{}
+{bool search_ans=search(commands_with_args);
+  moveTo(rows,1);cout<<":"<<boolalpha<<search_ans; return;}
 else
   {moveTo(rows,1);  cout<<":wrong command";}
 }
@@ -465,15 +473,16 @@ string final_path;
 if(path[0]=='~' || path[0]=='/' )
 {final_path=root+ "/"; path=path.substr(1);}
 else if(path[0]=='.')
-  {final_path=string(current_path)+ "/";path=path.substr(1);
-if(path[0]=='.')
+{final_path=string(root)+ "/";path=path.substr(1);
+    if(path[0]=='.')
   { string str=current_path;
     size_t found = str.find_last_of("/\\");
      final_path=str.substr(0,found);
       path=path.substr(1); }
 }
 else
-  {final_path=string(current_path)+ "/";}
+  {
+final_path=string(root)+ "/";}
 if(path[0]=='/')
 {path=path.substr(1);}
 
@@ -488,7 +497,7 @@ void make_dir(vector<string> commands_with_args)
 if (commands_with_args.size()!=3)
 {moveTo(rows,1);
 cout<<"\x1b[K"; 
-    cout<<"invalid no of arguments";
+    cout<<" invalid no of arguments";
     return;}
 string path=path_form(commands_with_args[2]);
 path+="/";
@@ -497,7 +506,7 @@ path+=commands_with_args[1];
 char path_dir[path.length()+1]; 
       strcpy(path_dir, path.c_str());
 if( mkdir(path_dir, S_IRWXU | S_IRWXG | S_IXOTH )<0)
-  {perror("cant make directory");}
+  {perror("cant make directory");return;}
 
 }
 
@@ -508,7 +517,7 @@ void make_file(vector<string> commands_with_args)
 if (commands_with_args.size()!=3)
 {moveTo(rows,1);
 cout<<"\x1b[K"; 
-    cout<<"invalid no of arguments";
+    cout<<" invalid no of arguments";
     return;}
 string path=path_form(commands_with_args[2]);
 path+="/";
@@ -518,8 +527,8 @@ char path_dir[path.length()+1];
       strcpy(path_dir, path.c_str());
 int fd=open(path_dir, O_CREAT|O_WRONLY|O_TRUNC, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IROTH|S_IWGRP);
 if( fd<0)
-  {perror("cant make file");}
-if(close(fd)<0){perror("cant close file");}
+  {perror("cant make file");return;}
+if(close(fd)<0){perror("cant close file");return;}
 }
 
 void change_directory(vector<string> commands_with_args)
@@ -527,7 +536,7 @@ void change_directory(vector<string> commands_with_args)
   if (commands_with_args.size()!=2)
 {moveTo(rows,1);
 cout<<"\x1b[K"; 
-    cout<<"invalid no of arguments";
+    cout<<" invalid no of arguments";
     return;}
 string path=path_form(commands_with_args[1]);
 
@@ -548,7 +557,9 @@ struct dirent *direntries;
   dir = opendir(path_dir);
 if (dir == NULL) {
       perror ("no directory entry");
+ return;
 }
+
 while ((direntries=readdir(dir)) != NULL) {
   if(string(direntries->d_name)=="." || string(direntries->d_name)=="..")
     continue;
@@ -556,22 +567,22 @@ while ((direntries=readdir(dir)) != NULL) {
   char path[dirname.length()+1]; 
       strcpy(path, dirname.c_str()); 
       if(stat (path, &dirinfo)<0)
-      {perror(path);}
+      {perror(path);return;}
       if(S_ISDIR(dirinfo.st_mode))
         { 
           remove_directories(path);
         }
-        else if(S_ISREG(dirinfo.st_mode)){
+        else {
         if( remove(path)<0)
-  {perror(" can't delete file");
+  {perror(" can't delete file");return;
 }
 }
     }
     if(closedir(dir)==-1){
-       perror ("close dir");
+       perror ("close dir");return;
     }
     if( rmdir(path_dir)<0)
-  {perror(" can't delete directory");
+  {perror(" can't delete directory");return;
 }
 }
 void remove_directory(vector<string> commands_with_args)
@@ -579,7 +590,7 @@ void remove_directory(vector<string> commands_with_args)
   if (commands_with_args.size()!=2)
 {moveTo(rows,1);
 cout<<"\x1b[K"; 
-    cout<<"invalid no of arguments";
+    cout<<" invalid no of arguments";
     return;}
 string path=path_form(commands_with_args[1]);
 char path_dir[path.length()+1]; 
@@ -591,13 +602,13 @@ void remove_file(vector<string> commands_with_args)
   if (commands_with_args.size()!=2)
 {moveTo(rows,1);
 cout<<"\x1b[K"; 
-    cout<<"invalid no of arguments";
+    cout<<" invalid no of arguments";
     return;}
 string path=path_form(commands_with_args[1]);
 char path_dir[path.length()+1]; 
       strcpy(path_dir, path.c_str());
 if( remove(path_dir)<0)
-  {perror(" can't delete file");
+  {perror(" can't delete file");return;
 }
 
 
@@ -609,7 +620,7 @@ void rename_file(vector<string> commands_with_args)
 if (commands_with_args.size()!=3)
 {moveTo(rows,1);
 cout<<"\x1b[K"; 
-    cout<<"invalid no of arguments";
+    cout<<" invalid no of arguments";
     return;}
 string from_path=path_form(commands_with_args[1]);
 string to_path=path_form(commands_with_args[2]);
@@ -619,41 +630,40 @@ char from_path_dir[from_path.length()+1];
  char to_path_dir[to_path.length()+1]; 
  strcpy(to_path_dir, to_path.c_str());
 if(rename(from_path_dir, to_path_dir) <0)
-  {perror("rename");}
+  {perror("rename");return;}
 
 }
 
-void move_file(vector<string> commands_with_args)
+
+
+
+
+void copy_files(vector<string> commands_with_args)
 {
   int n=commands_with_args.size();
 if (n<3)
 {moveTo(rows,1);
 cout<<"\x1b[K"; 
-    cout<<"invalid no of arguments";
+    cout<<" invalid no of arguments";
     return;}
 
+ for(int i=1;i<n-1;i++)
+ {
+
+   string from_path=path_form(commands_with_args[i]);
+  char from_path_dir[from_path.length()+1]; 
+ strcpy(from_path_dir, from_path.c_str());
+
+string to_path=path_form(commands_with_args[n-1]);
+   string to_name=get_file_name(from_path);
+to_path=to_path+"/"+to_name;
+char to_path_dir[to_path.length()+1]; 
+ strcpy(to_path_dir, to_path.c_str());
 
 
+copy_dir(from_path_dir, to_path_dir);
 
  
- for(int i=1;i<n-1;i++)
- {
-
-   string from_path=path_form(commands_with_args[i]);
-  char from_path_dir[from_path.length()+1]; 
- strcpy(from_path_dir, from_path.c_str());
-
-string to_path=path_form(commands_with_args[n-1]);
- size_t found = from_path.find_last_of("/\\");
-  string to_name=from_path.substr(found+1);
-to_path=to_path+"/"+to_name;
-char to_path_dir[to_path.length()+1]; 
- strcpy(to_path_dir, to_path.c_str());
-
- if(link(from_path_dir, to_path_dir)==-1)
-  {perror("move copy");}
-if(remove(from_path_dir)==-1)
-  {perror("move delte");}
 
 }
 
@@ -662,13 +672,86 @@ if(remove(from_path_dir)==-1)
 
 
 
-void copy_file(vector<string> commands_with_args)
+void copy_dir(char * from_path_dir, char * to_path_dir)
+{
+  struct stat dirinfo; 
+  DIR* dir;
+struct dirent *direntries;
+
+if(stat (from_path_dir, &dirinfo)<0)
+      {perror(from_path_dir);return;}
+
+      if(S_ISDIR(dirinfo.st_mode))
+        {
+          if( mkdir(to_path_dir, S_IRWXU | S_IRWXG | S_IXOTH| S_IROTH| S_IXOTH )<0)
+              {perror("cant make directory");return;}
+           dir = opendir(from_path_dir);
+            if (dir == NULL) {
+                     perror ("no directory entry");return;}
+       while ((direntries=readdir(dir)) != NULL) {   
+    if(string(direntries->d_name)=="." || string(direntries->d_name)=="..")
+    continue;
+ string from_dirname = string(from_path_dir) + "/" + string(direntries->d_name);
+  char from_path[from_dirname.length()+1]; 
+      strcpy(from_path, from_dirname.c_str());  
+string to_dirname = string(to_path_dir) + "/" + string(direntries->d_name);
+  char to_path[to_dirname.length()+1]; 
+      strcpy(to_path, to_dirname.c_str());  
+            copy_dir(from_path, to_path);
+  
+       }
+if(closedir(dir)==-1){
+       perror ("close dir");return;
+    }
+               }
+
+
+       else {
+       copy_file(from_path_dir, to_path_dir);
+       // if(link(from_path_dir, from_path_dir)==-1)
+ //  {perror(" copy");}
+
+}
+  }
+
+
+
+void copy_file(char * from_path_dir, char * to_path_dir)
+{
+char copy_content[1024];
+int from,to;
+int nread;
+from = open(from_path_dir, O_RDONLY);
+to = open(to_path_dir, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
+while((nread = read(from,copy_content,sizeof(copy_content))) > 0)
+write(to,copy_content,nread);
+
+if(close(from)<0){perror("cant close file");return;}
+if(close(to)<0){perror("cant close file");return;}
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void move_files(vector<string> commands_with_args)
 {
   int n=commands_with_args.size();
 if (n<3)
 {moveTo(rows,1);
 cout<<"\x1b[K"; 
-    cout<<"invalid no of arguments";
+    cout<<" invalid no of arguments";
     return;}
 
  for(int i=1;i<n-1;i++)
@@ -679,16 +762,159 @@ cout<<"\x1b[K";
  strcpy(from_path_dir, from_path.c_str());
 
 string to_path=path_form(commands_with_args[n-1]);
- size_t found = from_path.find_last_of("/\\");
-  string to_name=from_path.substr(found+1);
+ 
+ string to_name=get_file_name(from_path);
 to_path=to_path+"/"+to_name;
 char to_path_dir[to_path.length()+1]; 
  strcpy(to_path_dir, to_path.c_str());
 
- if(symlink(from_path_dir, to_path_dir)==-1)
-  {perror("move copy");}
 
+move_dir(from_path_dir, to_path_dir);
+
+ 
 
 }
 
 }
+
+
+
+
+void move_dir(char * from_path_dir, char * to_path_dir)
+{
+  struct stat dirinfo; 
+  DIR* dir;
+struct dirent *direntries;
+
+if(stat (from_path_dir, &dirinfo)<0)
+      {perror(from_path_dir);return;}
+
+      if(S_ISDIR(dirinfo.st_mode))
+        {
+          if( mkdir(to_path_dir, S_IRWXU | S_IRWXG | S_IXOTH| S_IROTH| S_IXOTH )<0)
+              {perror("cant make directory");return;}
+           dir = opendir(from_path_dir);
+            if (dir == NULL) {
+                     perror ("no directory entry");return;}
+       while ((direntries=readdir(dir)) != NULL) {   
+    if(string(direntries->d_name)=="." || string(direntries->d_name)=="..")
+    continue;
+ string from_dirname = string(from_path_dir) + "/" + string(direntries->d_name);
+  char from_path[from_dirname.length()+1]; 
+      strcpy(from_path, from_dirname.c_str());  
+string to_dirname = string(to_path_dir) + "/" + string(direntries->d_name);
+  char to_path[to_dirname.length()+1]; 
+      strcpy(to_path, to_dirname.c_str());  
+            move_dir(from_path, to_path);
+  
+       }
+if(closedir(dir)==-1){
+       perror ("close dir");return;
+    }
+    if( rmdir(from_path_dir)<0)
+  {perror(" can't delete directory");return;
+}
+               }
+
+
+       else {
+       move_file(from_path_dir, to_path_dir);
+    
+}
+  }
+
+
+
+void move_file(char * from_path_dir, char * to_path_dir)
+{
+char copy_content[1024];
+int from,to;
+int nread;
+from = open(from_path_dir, O_RDONLY);
+to = open(to_path_dir, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
+while((nread = read(from,copy_content,sizeof(copy_content))) > 0)
+write(to,copy_content,nread);
+
+if(close(from)<0){perror("cant close file");return;}
+if(close(to)<0){perror("cant close file");return;}
+if( remove(from_path_dir)<0)
+  {perror(" can't delete file");return;
+}
+}
+
+
+
+bool search(vector<string> commands_with_args)
+{
+  if (commands_with_args.size()!=2)
+{moveTo(rows,1);
+cout<<"\x1b[K"; 
+    cout<<" invalid no of arguments";
+    return false;}
+    
+string search_path=path_form(".");
+ return search_dirs(search_path,commands_with_args[1]);
+ }
+
+
+string get_file_name(string path)
+{
+  size_t found = path.find_last_of("/\\");
+  string file_name=path.substr(found+1);
+  return file_name;
+}
+
+
+ bool search_dirs(string search_path,string search_file)
+ {
+queue<string> dir_searched_names;
+dir_searched_names.push(search_path);
+
+ struct stat dirinfo; 
+  DIR* dir;
+struct dirent *direntries;
+while(!dir_searched_names.empty())
+{
+  string searching_path=dir_searched_names.front();
+  dir_searched_names.pop();
+char searching_path_char[searching_path.length()+1]; 
+      strcpy(searching_path_char, searching_path.c_str());
+
+if(stat (searching_path_char, &dirinfo)<0)
+ {perror(searching_path_char);return false;}
+
+  if(S_ISDIR(dirinfo.st_mode))
+     {
+     
+        dir = opendir(searching_path_char);
+            if (dir == NULL) {
+                     perror ("no directory entry");return false;}
+       while ((direntries=readdir(dir)) != NULL) {   
+    if(string(direntries->d_name)=="." || string(direntries->d_name)=="..")
+    continue;
+ 
+  if(search_file==direntries->d_name)
+    {return true;   }
+  string search_dirname = string(searching_path) + "/" + string(direntries->d_name);
+  char search_dir_path[search_dirname.length()+1]; 
+      strcpy(search_dir_path, search_dirname.c_str());
+      dir_searched_names.push(search_dir_path);
+  
+       }
+if(closedir(dir)==-1){
+       perror ("close dir");return false;
+    }
+               }
+
+
+       else {
+      
+  string file_name=get_file_name(searching_path);
+  if(search_file==file_name)
+    {return true;   }
+  }
+
+}
+
+return false;
+ }
