@@ -9,7 +9,7 @@
 #include <time.h>
 #include <sys/ioctl.h>
 #include<sys/wait.h> 
-#define clear_scr() cout<<"\x1b[2J";
+
 using namespace std;
 
 string root;
@@ -21,7 +21,7 @@ int cursor_position=1;
 vector<string> dir_list;
 stack<string> back_trace;
 stack<string> forward_trace;
-
+int command_line_print=0;
 
 void non_canonical();
 void restore();
@@ -50,10 +50,13 @@ string get_file_name(string path);
 bool search_dirs(string search_path,string search_file);
 bool search(vector<string> commands_with_args);
 void window_resized(int sig);
+void endsession(int sig);
+void clear_scr();
 
 int main()
 {
   signal(SIGWINCH, window_resized);
+  signal(SIGINT, endsession);
   non_canonical();
    char path[1024];
   
@@ -76,7 +79,8 @@ else {
    return 0;
 }
 
-
+void clear_scr() 
+{cout<<"\x1b[2J";}
 void getWindowSize() {
   struct winsize ws;
   if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
@@ -90,9 +94,16 @@ void getWindowSize() {
 }
 
 void window_resized(int sig) {
+   
     print_list_dirs();
+     
 }
-
+void endsession(int sig) {
+     restore();
+    clear_scr();
+    moveTo(1,1);
+    exit(sig);  
+}
 void print_list_dirs()
 {
 
@@ -118,7 +129,7 @@ while ((direntries=readdir(dir)) != NULL) {
   file_start=0;file_end=dir_list.size();  
   print_dirs();
 cursor_position=1;
-    moveTo(1,1);
+    moveTo(cursor_position,65);
      
 }
 
@@ -135,10 +146,9 @@ struct stat dirinfo;
  
  if(rows<dir_list.size() )
  {
-    file_end=file_start+rows-1;
+    file_end=file_start+rows-2;
  }
- else
-  {file_start=0;file_end=dir_list.size(); }
+ 
  sort(dir_list.begin(), dir_list.end());
 
  for(int i=file_start;i<file_end && i<dir_list.size();i++)
@@ -220,7 +230,7 @@ void restore()
 
   void normal_navigation()
   { moveTo(rows,1);
- cout<<"\x1b[K";  
+ cout<<"\x1b[0K"; 
     cout<<" NORMAl MODE"<<current_path;
     moveTo(cursor_position,65);  
     char ch;
@@ -344,8 +354,10 @@ void restore()
         pid_t pid = fork(); 
           if (pid == 0) {
 
+           if(dirname.find(".txt")!= string::npos)
             execl("/usr/bin/vi", "vi", dirname.c_str(), NULL);
-    
+          else
+            execl("/usr/bin/xdg-open", "xdg-open", dirname.c_str(), NULL);
       exit(0);
       
     }
@@ -363,7 +375,7 @@ void restore()
           file_start--;
           file_end--;
           print_dirs();
-          moveTo(cursor_position,1);
+          moveTo(cursor_position,65);
         } 
          }
     else  if(ch=='l'){ 
@@ -372,11 +384,11 @@ void restore()
           file_start++;
           file_end++;
           print_dirs();
-          moveTo(cursor_position,1);
+          moveTo(cursor_position,65);
         }
       }
     moveTo(rows,1);
-    cout<<"\x1b[K";
+    cout<<"\x1b[0K";
     cout<<" NORMAl MODE "<<current_path<<(int)ch;
     moveTo(cursor_position,65);  
   }
@@ -395,7 +407,7 @@ void command_mode()
 {
   string command="";
   moveTo(rows,1);
- cout<<"\x1b[K";  
+ cout<<"\x1b[0K";
     cout<< ":" ;
 // char ch[3];
 
@@ -426,15 +438,18 @@ void command_mode()
 if(!command.empty()) 
 {command_processing(command);
 command="";
-}}
+
+}
+}
 else{
 command+=ch;
 }
 
 moveTo(rows,1);
-//cout<<"\x1b[K"; 
-
-    cout<<":"<<command;
+if(command_line_print==0)
+  {cout<<"\x1b[0K"; cout<<":"<<command;} 
+else command_line_print=0;
+   
 }
 }
 
@@ -467,9 +482,9 @@ else if(commands_with_args[0]=="goto")
 {change_directory(commands_with_args);return;}
 else if(commands_with_args[0]=="search")
 {bool search_ans=search(commands_with_args);
-  moveTo(rows,1);cout<<":"<<boolalpha<<search_ans; return;}
+  moveTo(rows,1);cout<<"\x1b[0K";cout<<":"<<boolalpha<<search_ans; command_line_print=1;return;}
 else
-  {moveTo(rows,1);  cout<<":wrong command";}
+  {moveTo(rows,1); cout<<"\x1b[0K"; cout<<":wrong command";command_line_print=1;return;}
 }
 
 
@@ -503,8 +518,8 @@ void make_dir(vector<string> commands_with_args)
 {
 if (commands_with_args.size()!=3)
 {moveTo(rows,1);
-cout<<"\x1b[K"; 
-    cout<<" invalid no of arguments";
+cout<<"\x1b[0K";
+    cout<<":invalid no of arguments";command_line_print=1;
     return;}
 string path=path_form(commands_with_args[2]);
 path+="/";
@@ -523,8 +538,8 @@ void make_file(vector<string> commands_with_args)
 {
 if (commands_with_args.size()!=3)
 {moveTo(rows,1);
-cout<<"\x1b[K"; 
-    cout<<" invalid no of arguments";
+cout<<"\x1b[0K";
+    cout<<":invalid no of arguments";command_line_print=1;
     return;}
 string path=path_form(commands_with_args[2]);
 path+="/";
@@ -542,8 +557,8 @@ void change_directory(vector<string> commands_with_args)
 {
   if (commands_with_args.size()!=2)
 {moveTo(rows,1);
-cout<<"\x1b[K"; 
-    cout<<" invalid no of arguments";
+cout<<"\x1b[0K";
+    cout<<":invalid no of arguments";command_line_print=1;
     return;}
 string path=path_form(commands_with_args[1]);
 
@@ -596,8 +611,8 @@ void remove_directory(vector<string> commands_with_args)
 {
   if (commands_with_args.size()!=2)
 {moveTo(rows,1);
-cout<<"\x1b[K"; 
-    cout<<" invalid no of arguments";
+cout<<"\x1b[0K"; 
+    cout<<":invalid no of arguments";command_line_print=1;
     return;}
 string path=path_form(commands_with_args[1]);
 char path_dir[path.length()+1]; 
@@ -608,8 +623,8 @@ void remove_file(vector<string> commands_with_args)
 {
   if (commands_with_args.size()!=2)
 {moveTo(rows,1);
-cout<<"\x1b[K"; 
-    cout<<" invalid no of arguments";
+cout<<"\x1b[0K"; 
+    cout<<":invalid no of arguments";command_line_print=1;
     return;}
 string path=path_form(commands_with_args[1]);
 char path_dir[path.length()+1]; 
@@ -626,8 +641,8 @@ void rename_file(vector<string> commands_with_args)
 {
 if (commands_with_args.size()!=3)
 {moveTo(rows,1);
-cout<<"\x1b[K"; 
-    cout<<" invalid no of arguments";
+cout<<"\x1b[0K"; 
+    cout<<":invalid no of arguments";command_line_print=1;
     return;}
 string from_path=path_form(commands_with_args[1]);
 string to_path=path_form(commands_with_args[2]);
@@ -650,8 +665,8 @@ void copy_files(vector<string> commands_with_args)
   int n=commands_with_args.size();
 if (n<3)
 {moveTo(rows,1);
-cout<<"\x1b[K"; 
-    cout<<" invalid no of arguments";
+cout<<"\x1b[0K"; 
+    cout<<":invalid no of arguments";command_line_print=1;
     return;}
 
  for(int i=1;i<n-1;i++)
@@ -757,8 +772,8 @@ void move_files(vector<string> commands_with_args)
   int n=commands_with_args.size();
 if (n<3)
 {moveTo(rows,1);
-cout<<"\x1b[K"; 
-    cout<<" invalid no of arguments";
+cout<<"\x1b[0K"; 
+    cout<<":invalid no of arguments";command_line_print=1;
     return;}
 
  for(int i=1;i<n-1;i++)
@@ -855,8 +870,8 @@ bool search(vector<string> commands_with_args)
 {
   if (commands_with_args.size()!=2)
 {moveTo(rows,1);
-cout<<"\x1b[K"; 
-    cout<<" invalid no of arguments";
+cout<<"\x1b[0K";
+    cout<<":invalid no of arguments";command_line_print=1;
     return false;}
     
 string search_path=path_form(".");
