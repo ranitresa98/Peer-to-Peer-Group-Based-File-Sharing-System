@@ -20,9 +20,9 @@ int file_start,file_end;
 int cursor_position=1;
 vector<string> dir_list;
 stack<string> back_trace;
-stack<string> forward_trace;
+// stack<string> forward_trace;
 int command_line_print=0;
-
+void clear_scr();
 void non_canonical();
 void restore();
 void moveTo(int row, int col);
@@ -51,7 +51,7 @@ bool search_dirs(string search_path,string search_file);
 bool search(vector<string> commands_with_args);
 void window_resized(int sig);
 void endsession(int sig);
-void clear_scr();
+void next_directory();
 
 int main()
 {
@@ -81,9 +81,10 @@ else {
 
 void clear_scr() 
 {cout<<"\x1b[2J";}
+
 void getWindowSize() {
   struct winsize ws;
-  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
+  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col < 1) {
    perror("small screen");return;
   } else {
     cols = ws.ws_col;
@@ -277,22 +278,37 @@ void restore()
           
         else if(ch=='C')//right
           {
-            if(!forward_trace.empty())
-            { back_trace.push(string(current_path));
-              string path=forward_trace.top();
-              forward_trace.pop();
-              strcpy(current_path, path.c_str());
-              print_list_dirs();
-          }
           
+         
+          next_directory();
+          
+//   if(!forward_trace.empty())
+          //   { back_trace.push(string(current_path));
+          //     string path=forward_trace.top();
+          //     forward_trace.pop();
+          //     strcpy(current_path, path.c_str());
+          //     print_list_dirs();
+          // }
           }
         
         else if(ch=='D')//left
           {
-           if(!back_trace.empty())
-            { forward_trace.push(string(current_path));
-              string path=back_trace.top();
+          //   if(!back_trace.empty())
+          //   { forward_trace.push(string(current_path));
+          //     string path=back_trace.top();
+          //     back_trace.pop();
+          //     strcpy(current_path, path.c_str());
+          //     print_list_dirs();
+          // }
+
+           if(back_trace.empty()==false)
+            { string path=back_trace.top();
               back_trace.pop();
+              if(path==current_path)
+                {if(back_trace.empty()==false)
+                  {
+                  path=back_trace.top();
+                  back_trace.pop();} }
               strcpy(current_path, path.c_str());
               print_list_dirs();
           }
@@ -301,8 +317,8 @@ void restore()
     }
      else if(ch=='h')//home
          {
-          back_trace.push(current_path);
-          forward_trace=stack<string>();
+          // back_trace.push(current_path);
+          // forward_trace=stack<string>();
        strcpy(current_path, root.c_str());
        print_list_dirs();
              
@@ -310,13 +326,13 @@ void restore()
        
     else   if(ch==127)//backspace
        { 
-          back_trace.push(current_path);
+          // back_trace.push(current_path);
           string str=current_path;
            size_t found = str.find_last_of("/");
           string parent=str.substr(0,found);
           strcpy(current_path, parent.c_str()); 
           print_list_dirs();
-          forward_trace=stack<string>();
+          // forward_trace=stack<string>();
        }
        
 
@@ -331,12 +347,14 @@ void restore()
       {continue;}
      else if(dir_name=="..")
     {
+      
       string str=current_path;
       size_t found = str.find_last_of("/");
           string parent=str.substr(0,found);
-          back_trace.push(current_path);
-          strcpy(current_path, parent.c_str()); 
+          // back_trace.push(current_path);
+         strcpy(current_path, parent.c_str()); 
           print_list_dirs();
+          back_trace.push(current_path);
     }
      else  { dirname = string(current_path) + "/" + dir_name;
            char child_path[dirname.length()+1]; 
@@ -345,10 +363,10 @@ void restore()
       {perror(child_path);return;}
       if(S_ISDIR(dirinfo.st_mode))
         { 
-          back_trace.push(current_path);
+          // back_trace.push(current_path);
            strcpy(current_path, dirname.c_str());
           print_list_dirs();
-                 
+           back_trace.push(current_path);      
         }
         else if(S_ISREG(dirinfo.st_mode)){
         pid_t pid = fork(); 
@@ -397,7 +415,58 @@ void restore()
 
 
 
+void next_directory()
+{    
+  string dirname;
+  struct stat dirinfo;
+  DIR* dir;
+struct dirent *direntries;
+ string str=current_path;
+  size_t found = str.find_last_of("/");
+  string parent=str.substr(0,found);
+  string file_name=str.substr(found+1);
+  vector<string> list_files;
 
+char parent_array[parent.length()+1]; 
+      strcpy(parent_array, parent.c_str());
+  dir = opendir(parent_array);
+if (dir == NULL) {
+      perror ("no directory entry");return;
+   }
+ while ((direntries=readdir(dir)) != NULL) {
+  list_files.push_back(direntries->d_name);
+    }
+    if(closedir(dir)==-1){
+       perror ("close dir");return;
+      
+    }
+sort(list_files.begin(), list_files.end());
+auto itr = find (list_files.begin(), list_files.end(), file_name); 
+  // int i=20;
+itr++;
+    while (itr != list_files.end()) 
+    { 
+
+      dirname = string(parent) + "/" + string(*itr);
+      char dirname_array[dirname.length()+1]; 
+      // moveTo(i,1);i++;
+      // cout<<dirname;
+      strcpy(dirname_array, dirname.c_str()); 
+      if(stat (dirname_array, &dirinfo)<0)
+      {perror(dirname_array);return;}
+     if(S_ISDIR(dirinfo.st_mode))
+        { 
+          strcpy(current_path, dirname.c_str());
+          print_list_dirs();
+          return;
+        }
+
+
+    itr++;
+    } 
+  
+
+}
 
 
 
@@ -425,7 +494,7 @@ void command_mode()
      // // ch = cin.get();
      // //  ch= cin.get();
      //  if(ch=='A' || ch=='B' || ch=='C' || ch=='D')  continue;
-     normal_navigation();       
+      normal_navigation();       
     }
     
     else  if(ch==127)//backspace
@@ -438,7 +507,7 @@ void command_mode()
 if(!command.empty()) 
 {command_processing(command);
 command="";
-
+ print_list_dirs();
 }
 }
 else{
@@ -527,7 +596,7 @@ path+=commands_with_args[1];
 
 char path_dir[path.length()+1]; 
       strcpy(path_dir, path.c_str());
-if( mkdir(path_dir, S_IRWXU | S_IRWXG | S_IXOTH )<0)
+if( mkdir(path_dir, S_IRWXU | S_IRWXG | S_IXOTH| S_IROTH| S_IWOTH )<0)
   {perror("cant make directory");return;}
 
 }
@@ -547,7 +616,7 @@ path+=commands_with_args[1];
 
 char path_dir[path.length()+1]; 
       strcpy(path_dir, path.c_str());
-int fd=open(path_dir, O_CREAT|O_WRONLY|O_TRUNC, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IROTH|S_IWGRP);
+int fd=open(path_dir, O_CREAT|O_WRONLY|O_TRUNC, S_IRUSR|S_IWUSR|S_IXUSR|S_IWGRP|S_IXGRP|S_IRGRP|S_IROTH|S_IWOTH |S_IXOTH);
 if( fd<0)
   {perror("cant make file");return;}
 if(close(fd)<0){perror("cant close file");return;}
@@ -563,7 +632,7 @@ cout<<"\x1b[0K";
 string path=path_form(commands_with_args[1]);
 
 
-back_trace.push(current_path);
+//back_trace.push(current_path);
            strcpy(current_path, path.c_str());
           print_list_dirs();
 
