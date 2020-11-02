@@ -98,8 +98,10 @@ string mzg="Joined group"+group_id;
  strcpy(buffer1, mzg.c_str()); 
  send(client, buffer1, 256, 0); 
 
- cout<<"testing"<<endl;
+ // cout<<"testing"<<endl;
+ close(client);
  pthread_exit(NULL);
+
 }
 
 vector<string> split_string(string command, char delimeter)
@@ -143,7 +145,8 @@ port_mapper[port]=real_port;
                 read(client_socket, &flag, sizeof(flag)); 
                     cout<<"Peer "<<ip<<":"<<real_port<<"  "<<flag<<endl; 
                     strcpy(buffer1, "Tracker Listening"); 
-                    send(client_socket, buffer1, 256, 0); 
+                    send(client_socket, buffer1, 256, 0);
+
 
                     switch(flag)
                     {
@@ -175,28 +178,32 @@ port_mapper[port]=real_port;
                               memset(pwd,0,sizeof(pwd));
                               read(client_socket,&uname,sizeof(uname));
                              send(client_socket,&ack,sizeof(ack),0);
+                             // cout<<"unmae send"<<endl;
                               // cout<<"Username "<<":"<<uname<<endl; 
                                read(client_socket,&pwd,sizeof(pwd));
                                 send(client_socket,&ack,sizeof(ack),0);
+                                // cout<<"pwd send"<<endl;
                                // cout<<"Passwd "<<port<<":"<<pwd<<endl; 
                                fflush(stdout);
 
                                
                                 if(users_list[uname].passwd==pwd)
                                 {
-                                    cout<<"logged in"<<endl;
+                                    
                                     memset(buffer1,0,sizeof(buffer1));
                                     
                                     if(users_list[uname].login==1)
-                                    {
+                                    {cout<<"already logged in"<<endl;
                                         ack=2;
                                         send(client_socket, &ack,sizeof(ack),0);  
+                                        // cout<<"login send"<<endl;
                                     }
 
                                     else
-                                    {
+                                    {cout<<"logged in"<<endl;
                                         ack=1;
                                     send(client_socket, &ack,sizeof(ack),0); 
+                                    // cout<<"login send"<<endl;
                                     users_list[uname].login=1;
                                     users_list[uname].ip=ip;
                                     users_list[uname].port=port;
@@ -210,6 +217,7 @@ port_mapper[port]=real_port;
                                     cout<<"wrong passwd"<<endl;
                                     ack=0;
                                     send(client_socket, &ack,sizeof(ack),0); 
+                                    // cout<<"login send"<<endl;
                                 }
                                
                                 break;
@@ -225,6 +233,7 @@ port_mapper[port]=real_port;
                               
                               read(client_socket,&group_id,sizeof(group_id));
                              send(client_socket,&ack,sizeof(ack),0);
+                             // cout<<"create_group send"<<endl;
                               cout<<"Create Group "<<":"<<group_id<<endl; 
                                 
                                fflush(stdout);
@@ -236,6 +245,7 @@ port_mapper[port]=real_port;
                                memset(buffer1,0,sizeof(buffer1));
                                strcpy(buffer1, "Group created and joined");
                                send(client_socket, buffer1, 256, 0);
+                               // cout<<"create_group send"<<endl;
                                 break;
                             }
 
@@ -256,6 +266,7 @@ port_mapper[port]=real_port;
                                     strcpy(buffer1, "Invalid group id");
                                 }
                             send(client_socket, buffer1, 256, 0); 
+                            // cout<<"join_group send"<<endl;
                             break;
                                }
 
@@ -284,6 +295,7 @@ port_mapper[port]=real_port;
                                     cout<<"Invalid group id";
                                 }
                                send(client_socket, buffer1, 256, 0); 
+                               // cout<<"leave_group send"<<endl;
                                 break;
                                }
 
@@ -303,17 +315,19 @@ port_mapper[port]=real_port;
                                if( group_owner[group_id]!=port)
                                {
                                 send(client_socket,&ack,sizeof(ack),0);
+                                // cout<<"list_requests send"<<endl;
                                }
                                 else
                                {
                                 ack=1;
                                 send(client_socket,&ack,sizeof(ack),0);
-                               
+                                // cout<<"list_requests send"<<endl;
 
                                 read(client_socket,&ack,sizeof(ack));
                                 int length=pending_group_request[group_id].size();
                                 // cout<<length<<endl;
                                  send(client_socket, &length, sizeof(length),0);
+                                  // cout<<"list_requests send"<<endl;
                                 read(client_socket,&ack,sizeof(ack));
                                 for (auto i=pending_group_request[group_id].begin();i!=pending_group_request[group_id].end();i++)
                                 {
@@ -322,6 +336,7 @@ port_mapper[port]=real_port;
                                     cout<<req_user;
                                     strcpy(buffer1, req_user.c_str());
                                     send(client_socket, buffer1, 256, 0);
+                                     // cout<<"list_requests send"<<endl;
                                     read(client_socket,&ack,sizeof(ack));
                                 }
                                
@@ -340,13 +355,16 @@ port_mapper[port]=real_port;
                                if( group_owner[group_id]!=port)
                                {
                                 cout<<"Not owner";
+                                 // cout<<"accept_request send"<<endl;
                                 send(client_socket,&ack,sizeof(ack),0);
+
                                }
                                 else
                                {
                                 cout<<"Owner"<<endl;
                                 ack=1;
                                 send(client_socket,&ack,sizeof(ack),0);
+                                 // cout<<"accept_request send"<<endl;
                                 char uname[50];
                                 read(client_socket,&uname,sizeof(uname));
                                 int user_port=users_list[uname].port;
@@ -357,7 +375,7 @@ port_mapper[port]=real_port;
 
 
                                 // cout<<"test"<<endl;
-                                pthread_t tid;
+                                pthread_t tid1;
                                   struct arg_struct_for_accept arg;
        
                                 arg.ip=ip;
@@ -365,19 +383,20 @@ port_mapper[port]=real_port;
                                  arg.group_id=group_id;
                                  
                                     // cout<<"Thread enter"<<endl;
-                                 if(pthread_create(&tid, NULL, inform_user_added, (void *)&arg)!= 0 )
+                                 if(pthread_create(&tid1, NULL, inform_user_added, (void *)&arg)!= 0 )
                                   {
                                         cout<<"failed to create thread\n";
                                    } 
                                    // cout<<"Thread exit"<<endl;
                                    
                                 
-                                  pthread_join(tid,NULL);
+                                  pthread_join(tid1,NULL);
                                    
                                     cout<<"User added"<<endl;
 
                                 strcpy(buffer1, "User added");
                                 send(client_socket, buffer1, 256, 0);
+                                 // cout<<"accept_request send"<<endl;
                                }
 
                                 break;
@@ -388,6 +407,7 @@ port_mapper[port]=real_port;
                                 int ack;
                                 int length=list_groups.size();
                                  send(client_socket, &length, sizeof(length), 0);
+                                  // cout<<"list_groups send"<<endl;
                                 read(client_socket,&ack,sizeof(ack));
                                 for (auto i=list_groups.begin();i!=list_groups.end();i++)
                                 {
@@ -396,6 +416,7 @@ port_mapper[port]=real_port;
                                     
                                     strcpy(buffer1, grp.c_str());
                                     send(client_socket, buffer1, 256, 0);
+                                    // cout<<"list_groups send"<<endl;
                                     read(client_socket,&ack,sizeof(ack));
                                 }
                                
@@ -411,6 +432,7 @@ port_mapper[port]=real_port;
                                     read(client_socket,&group_id,sizeof(group_id));
                                     int length=group_files[group_id].size();
                                  send(client_socket, &length, sizeof(length), 0);
+                                 // cout<<"list_files send"<<endl;
                                 read(client_socket,&ack,sizeof(ack));
                                 for (auto i=group_files[group_id].begin();i!=group_files[group_id].end();i++)
                                 {
@@ -419,6 +441,7 @@ port_mapper[port]=real_port;
                                     
                                     strcpy(buffer1, grp.c_str());
                                     send(client_socket, buffer1, 256, 0);
+                                     // cout<<"list_files send"<<endl;
                                     read(client_socket,&ack,sizeof(ack));
                                 }
 
@@ -443,12 +466,13 @@ port_mapper[port]=real_port;
                               {
                                 ack=0;
                                 send(client_socket,&ack,sizeof(ack),0);
+                                 // cout<<"upload_file send"<<endl;
                               }
                               else
                               {
                                 ack=1;
                                 send(client_socket,&ack,sizeof(ack),0);
-                                
+                                // cout<<"upload_file send"<<endl;
                                 read(client_socket,&ack,sizeof(ack));
                                 if(ack==1)
                                 {
@@ -457,12 +481,14 @@ port_mapper[port]=real_port;
                                 
                                 read(client_socket,&file_size,sizeof(file_size));
                                 send(client_socket,&ack,sizeof(ack),0);
+                                // cout<<"upload_file send"<<endl;
                                 cout<<"size"<<file_size<<endl;
                                     fflush(stdout);
 
                                 char filename[100];                                
                                 read(client_socket,&filename,sizeof(filename));
                                 send(client_socket,&ack,sizeof(ack),0);
+                                // cout<<"upload_file send"<<endl;
                                  cout<<"filepath "<<filename <<endl;
                                   fflush(stdout);
                                
@@ -474,6 +500,7 @@ port_mapper[port]=real_port;
                                 int no_of_chunks;
                                 read(client_socket,&no_of_chunks,sizeof(no_of_chunks));
                                 send(client_socket,&ack,sizeof(ack),0);
+                                // cout<<"upload_file send"<<endl;
                                 cout<<"chunks"<<no_of_chunks<<endl;
                                 file_info_mapp[{group_id,filename}].chunks=no_of_chunks;
                                 fflush(stdout);
@@ -489,12 +516,13 @@ port_mapper[port]=real_port;
                                 
                                 group_files[group_id].insert(filename);
                                 file_peer[{group_id,filename}].PB(real_port);
-                                cout<<file_peer[{group_id,filename}][0]<<endl;
+                                // cout<<file_peer[{group_id,filename}][0]<<endl;
                                 //     fflush(stdout);
                                    
 
                                 strcpy(buffer1, "File uploaded");
                                 send(client_socket, buffer1, 256, 0);
+                                // cout<<"upload_file send"<<endl;
                                
 
                                cout<<"Fileuploaded";
@@ -513,6 +541,7 @@ port_mapper[port]=real_port;
                                     memset(group_id,0,sizeof(group_id));
                                     read(client_socket,&group_id,sizeof(group_id));
                                     send(client_socket,&ack,sizeof(ack),0);
+                                    // cout<<"download_files send"<<endl;
                                     cout<<"group"<<group_id<<endl;
                                     
                                     char filename[100];                                
@@ -520,7 +549,8 @@ port_mapper[port]=real_port;
                                     cout<<"filename "<<filename<<endl;
 
                                     int length=file_peer[{group_id,filename}].size();
-                                    send(client_socket, &length, sizeof(length), 0);                                    
+                                    send(client_socket, &length, sizeof(length), 0); 
+                                     // cout<<"download_files send"<<endl;                                   
                                     read(client_socket,&ack,sizeof(ack));
                                     cout<<"length"<<length<<endl;
 
@@ -531,15 +561,18 @@ port_mapper[port]=real_port;
                                       int ports=*i;
                                        cout<<ports<<endl;
                                         send(client_socket, &ports, sizeof(ports), 0);
+                                         // cout<<"download_files send"<<endl;
                                        read(client_socket,&ack,sizeof(ack));
                                     }
                                     int chunk=file_info_mapp[{group_id,filename}].chunks;
                                      send(client_socket, &chunk, sizeof(chunk), 0);
+                                      // cout<<"download_files send"<<endl;
                                      read(client_socket,&ack,sizeof(ack));
                                      cout<<"chunk"<<chunk<<endl;
 
                                       int file_size=file_info_mapp[{group_id,filename}].size;
                                      send(client_socket, &file_size, sizeof(file_size), 0);
+                                      // cout<<"download_files send"<<endl;
                                      read(client_socket,&ack,sizeof(ack));
                                      cout<<"file_size"<<chunk<<endl;
 
@@ -549,6 +582,7 @@ port_mapper[port]=real_port;
                                     
                                     // strcpy(buffer1, "ffffg");
                                      send(client_socket, &hashf, sizeof(hashf), 0);
+                                      // cout<<"download_files send"<<endl;
                                      
                                      cout<<"hash"<<hashf<<endl;
 
@@ -640,19 +674,22 @@ int main(int argc, char const *argv[])
       
    
    
-    pthread_t tid;
-     // pthread_t tid[20];
+    pthread_t tid[1000];
+     // pthread_t tid;
 
     struct sockaddr_in peer_addr;
     socklen_t addrlen;
     int new_sock;
     addrlen= sizeof(peer_addr);
 
+  struct arg_struct args[1000];
+  int i=0;
+
 while(1)
 {
         new_sock = accept(server,(struct sockaddr*) &peer_addr, (socklen_t*) &addrlen);
-	       struct arg_struct args;
-         args.sock = new_sock;
+	      
+         args[i].sock = new_sock;
         
       //   char ip_c[INET_ADDRSTRLEN]; 
       //   inet_ntop(AF_INET, &(peer_addr.sin_addr), ip_c, INET_ADDRSTRLEN); 
@@ -661,17 +698,18 @@ while(1)
 
       //    args.ip=inet_ntoa(peer_addr.sin_addr);
 
-    args.ip=inet_ntoa(peer_addr.sin_addr);
-    args.pt=(ntohs(peer_addr.sin_port));
-         // int i=0;
-	    if(pthread_create(&tid, NULL, handle_conn, (void *)&args)!= 0 )
+    args[i].ip=inet_ntoa(peer_addr.sin_addr);
+    args[i].pt=(ntohs(peer_addr.sin_port));
+         
+	    if(pthread_create(&tid[i], NULL, handle_conn, (void *)&args[i])!= 0 )
 	    {
 	    	cout<<"failed to create thread\n";
 	    }  
+        i++;
 	}  
      
 
-  
-   pthread_join(tid,NULL);
+  pthread_exit(NULL);
+   // pthread_join(tid,NULL);
     return 0; 
 } 

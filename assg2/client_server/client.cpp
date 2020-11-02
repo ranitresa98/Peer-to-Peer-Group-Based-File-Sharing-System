@@ -15,9 +15,9 @@
 #include <errno.h>
 #include <string.h>
 #include <fcntl.h>
- 
  #define chunk_size 512*1024
 #define piece_size 512
+
 
 
   using namespace std;   
@@ -26,6 +26,8 @@ char * ip;
 int logged_in=0;
 char track_ip1[16],track_ip2[16];
 int track_port1,track_port2;
+// pthread_mutex_t lock1=PTHREAD_MUTEX_INITIALIZER;
+
 unordered_map<string,string> filename_path; //file name to path
 
 
@@ -70,24 +72,44 @@ void * service_server(void* args)
  int serv=*((int*)args);
     cout<<"peer server"<<endl;
 
+// pthread_mutex_lock(&lock1);
+   
+cout<<"server lock enter"<<endl;
     int flag;int ack;
+
 read(serv,&flag,sizeof(flag));
     send(serv,&ack,sizeof(ack),0);
+
+    fflush(stdout);
+    
+    //  cout<<"client_server flag send"<<endl;
+    // cout<<"server flag"<<flag<<endl;
     if(flag==0)
     {   char buffer1[256];
         read(serv,&buffer1,sizeof(buffer1));
-        cout<<buffer1<<endl;
+        cout<<":"<<buffer1<<endl;
         cout<<endl<<endl;
+        // cout<<"client_server flag0 buffer send"<<endl;
+    // pthread_mutex_unlock(&lock1);
+    close(serv);
+    pthread_exit(NULL);
     }
 
     else
 
    {
+    // cout<<"server enter"<<endl;
         fflush(stdout);
+    
        char filename[100];
        memset(filename,0,sizeof(filename));
+
+        // pthread_mutex_lock(&lock1);
        read(serv,&filename,sizeof(filename));
        send(serv,&ack,sizeof(ack),0);
+       // cout<<"client_server filename  send"<<endl;
+       //pthread_mutex_unlock(&lock1);
+
        cout<<"filename:"<<filename<<endl;
            string filepath=filename_path[filename];
            char  file_path[filepath.length()+1];
@@ -95,50 +117,79 @@ read(serv,&flag,sizeof(flag));
            cout<<"filepath:"<<file_path<<endl;
 
            int start;
+           //pthread_mutex_lock(&lock1);
            read(serv,&start,sizeof(start));
             send(serv,&ack,sizeof(ack),0);
+            // cout<<"client_server start  send"<<endl;
+            //pthread_mutex_unlock(&lock1);
             cout<<"start"<<start<<endl;
 
             int file_size;
            read(serv,&file_size,sizeof(file_size));
             send(serv,&ack,sizeof(ack),0);
+            //pthread_mutex_unlock(&lock1);
+            // cout<<"client_server file_size  send"<<endl;
             cout<<"file_size"<<file_size<<endl;
 
 
             char hash[400];
+            //pthread_mutex_lock(&lock1);
         read(serv,&hash,sizeof(hash));
         send(serv,&ack,sizeof(ack),0);
+        //pthread_mutex_unlock(&lock1);
              cout<<"hash server_addr"<<hash<<endl;
-
+// cout<<"client_server hash  send"<<endl;
    
 
-
+             //pthread_mutex_lock(&lock1);
              FILE* fp=fopen(file_path,"r");
+             //pthread_mutex_unlock(&lock1);
+
               if (fp==NULL) {perror("open"); exit(-1);}
               else{cout<<"file opened"<<endl;}
              char buffer[piece_size];
 
+             //pthread_mutex_lock(&lock1);
              fseek(fp, start, SEEK_SET);
+             //pthread_mutex_unlock(&lock1);
              int len=file_size;
              cout<<"downloading"<<len<<endl;
+             
+             int i=0;
              while(len>0)
-             {   int sizee=min(len,piece_size);
-                memset(buffer,'\0',sizee);
-                int n=fread(buffer,sizeof(char),sizee,fp);
-              send(serv,buffer,n,0);
+             {   
+                int sizee=min(len,piece_size);
+                // memset(buffer,'\0',sizee);
+                //pthread_mutex_lock(&lock1);
+                int n=fread(&buffer,sizeof(char),sizee,fp);
+                 send(serv,buffer,n,0);
                read(serv,&ack,sizeof(ack));
                 len-=n;
-                // cout<<"buffer"<<buffer<<endl;
-                cout<<n<<endl;
+                // cout<<"client_server fread  send"<<n<<ack<<endl;
+                //pthread_mutex_unlock(&lock1);
                 
+                i++;
                 }
-            fclose(fp);
-           cout<<"done"<<endl;
-    
 
+                // cout<<"i"<<i<<endl;
+                //pthread_mutex_lock(&lock1);
+                 
+            fclose(fp);
+            char buffer1[256];
+  read(serv,buffer1,sizeof(buffer1));
+  // cout<<buffer1<<endl<<endl;
+  // cout<<"client_server buffer1  send"<<endl;
+  fflush(stdout);
+    
+            // pthread_mutex_unlock(&lock1);
+            
+           cout<<"done"<<endl;
+           cout<<endl<<endl;
+    close(serv);
+pthread_exit(NULL);
        }
 
-pthread_exit(NULL);
+
 }
 
 
@@ -166,32 +217,50 @@ void * download(void* args)
     if (con <0) 
          {perror("connect"); exit(1);}
      cout<<"connected"<<endl;
-     int flag=1,ack;
+     int flag=1,ack=1;
+
+     // pthread_mutex_lock(&lock1);
+     fflush(stdout);
+   
+     // cout<<"client lock enter"<<endl;
      send(client,&flag,sizeof(flag),0);
      read(client,&ack,sizeof(ack));
+//      cout<<"client_cliuent  flag  send"<<endl;
+//      //pthread_mutex_unlock(&lock1);
+// cout<<"client flag"<<flag<<endl;
 
      fflush(stdout);
+     // cout<<"client enter"<<endl;
      string file_name=sp->filename;
      char  filename[file_name.length()+1];
      strcpy(filename,file_name.c_str());
      // char buffer1[256];
      //    strcpy(buffer1, "ffffg");
      cout<<"filename :"<<filename<<endl;
+     // pthread_mutex_lock(&lock1);
      send(client,&filename,sizeof(filename),0);
     read(client,&ack,sizeof(ack));
+    // cout<<"client_cliuent  filename  send"<<endl;
+    //pthread_mutex_unlock(&lock1);
     cout<<"filename :"<<filename<<endl;
     fflush(stdout);
 
 
     int start=sp->start;
+    //pthread_mutex_lock(&lock1);
     send(client,&start,sizeof(start),0);
     read(client,&ack,sizeof(ack));
+    //pthread_mutex_unlock(&lock1);
     cout<<"start"<<start<<endl;
+    // cout<<"client_cliuent  start  send"<<endl;
 
     int file_size=sp->file_size;
+    //pthread_mutex_lock(&lock1);
     send(client,&file_size,sizeof(file_size),0);
     read(client,&ack,sizeof(ack));
+    //pthread_mutex_unlock(&lock1);
     cout<<"file_size"<<file_size<<endl;
+    // cout<<"client_cliuent  file_size  send"<<endl;
 
    string hashh=sp->hash;
    // cout<<"hash sp->"<<sp->hash<<endl;
@@ -199,53 +268,57 @@ void * download(void* args)
 
      char hashf[hashh.length()+1];
      strcpy(hashf,hashh.c_str());
+     //pthread_mutex_lock(&lock1);
      send(client,&hashf,sizeof(hashf),0);
     read(client,&ack,sizeof(ack));
+    //pthread_mutex_unlock(&lock1);
     cout<<"hash "<<hashf<<endl;
+// cout<<"client_cliuent  hash  send"<<endl;
 
-
+     
      string dest=sp->file_out;
-     dest=dest+"/"+file_name;
      char dest_path[50];
      strcpy(dest_path,dest.c_str());
 
 cout<<"dest  "<<dest_path<<endl;
+//pthread_mutex_lock(&lock1);
      FILE* fp=fopen(dest_path,"w+");
+     //pthread_mutex_unlock(&lock1);
      if (fp==NULL) {perror("open"); exit(-1);}
        else{cout<<"file opened"<<endl;}
     
      char buffer[piece_size];
 
+        //pthread_mutex_lock(&lock1);
       fseek(fp, start, SEEK_SET);
+      // pthread_mutex_unlock(&lock1);
       int len=file_size;
       cout<<"downloading"<<len<<endl;
 
 
-       // SHA_CTX ctx;
-       //  SHA1_Init(&ctx);
+       int i=0;
        while(len>0)
          {
 
-            
+            //pthread_mutex_lock(&lock1);
             int n=read(client,buffer,sizeof(buffer));
-            // cout<<"buffer"<<buffer<<endl;
-            cout<<n<<endl;
-            fwrite(buffer,sizeof(char),n,fp);
+            fwrite(&buffer,sizeof(char),n,fp);
             send(client,&ack,sizeof(ack),0);
+            //pthread_mutex_unlock(&lock1);
+            // cout<<"buffer"<<buffer<<endl;
              len-=n;
              memset(buffer,'\0',sizeof(buffer));
-            // SHA1_Update(&ctx, buffer, sizeof(buffer));
+             // cout<<"client_cliuent  fwrite  send"<<n<<ack<<endl;
+             // cout<<n<<endl;
+           i++;
 
           }
+          // cout<<"i"<<i<<endl;
+          // pthread_mutex_lock(&lock1);
         fclose(fp);
-         cout<<"downloaded"<<endl; 
- //    unsigned char hash_file[SHA_DIGEST_LENGTH];
- //    SHA1_Final(hash_file, &ctx);
- //     char t[2*SHA_DIGEST_LENGTH];
- //     for (int i=0; i<SHA_DIGEST_LENGTH; i++)
- //     { snprintf(t+2*i,  sizeof(t)-2*(i), "%02x", hash_file[i]);        }
- // string mtorrent=(string)t;   
- //     cout<<mtorrent<<endl;
+        // pthread_mutex_unlock(&lock1);
+         cout<<"downloaded 1"<<endl; 
+ 
 
 
                 char copy_content[chunk_size];  ///512kb
@@ -267,13 +340,18 @@ cout<<"dest  "<<dest_path<<endl;
                  
             } cout<<mtorrent<<endl;
             close(fd);
-    cout<<"downloaded"<<endl; 
-    if(hashh==mtorrent)
+    cout<<"downloaded 2"<<endl; 
+    if( hashh==mtorrent)
     {
         cout<<"hash matches "<<endl;
     }
-  
-  
+    char buffer1[256];
+                strcpy(buffer1, "ffffg");
+                 send(client,buffer1,sizeof(buffer1),0);
+                 // cout<<"client_client buffer1  send"<<endl;
+fflush(stdout);
+   
+  close(client);
 pthread_exit(NULL);
 }
 
@@ -303,33 +381,27 @@ int client = socket(AF_INET, SOCK_STREAM, 0);
       
 struct sockaddr_in peer_addr;
     socklen_t addrlen;
-    int new_sock;
+    int new_sock[1000];
     addrlen= sizeof(peer_addr);
-pthread_t tid;
+pthread_t tid[1000];
+int i=0;
 while(1)
 {
-        new_sock = accept(client,(struct sockaddr*) &peer_addr, (socklen_t*) &addrlen);
+        new_sock[i] = accept(client,(struct sockaddr*) &peer_addr, (socklen_t*) &addrlen);
 
 
-        // int flag;
-        // read(new_sock, &flag, sizeof(flag)); 
-        // char buffer1[256];
-        // strcpy(buffer1, "Peer Listening"); 
-        // send(new_sock, buffer1, 256, 0); 
-        // if(flag==0)
-        //     {read(new_sock, buffer1, 256);}
-        
-         if(pthread_create(&tid,NULL,service_server,&new_sock)!=0)
+             
+         if(pthread_create(&tid[i],NULL,service_server,&new_sock[i])!=0)
 	    {
 	    	cout<<"Failed to create server request service thread\n";
 	    }
-         
+         i++;
           
 
  }
 close(client);
-   pthread_join(tid,NULL);
-
+   // pthread_join(tid,NULL);
+pthread_exit(NULL);
 
 }
 
@@ -375,7 +447,11 @@ int main(int argc, char const *argv[])
     
 
    
-     
+     // if(pthread_mutex_init(&lock1,NULL)!=0)
+     // {
+     //    cout<<"mutex failed"<<endl;
+     //    exit(-1);
+     // }
      
 
 
@@ -1061,7 +1137,8 @@ fflush(stdout);
             
             pthread_t tid[no_of_chunks];
 
-
+    string dest=(string)str4;
+     dest=dest+"/"+(string)str3;
             //  struct down_details args;
             //  args.filename=str3;
             // args.file_out=str4;
@@ -1073,15 +1150,15 @@ fflush(stdout);
          for(int i=0;i<no_of_chunks;i++)
          {
             args[i].filename=str3;
-            args[i].file_out=str4;
+            args[i].file_out=dest;
             args[i].hash=(string)hashf; 
             args[i].port=peer_lists[i%length];   
-            cout<<"port "<<i%length<<" :"<<port<<endl;                    
+            cout<<"port "<<i%length<<" :"<<args[i].port<<endl;                    
             args[i].file_size=min(filesize,chunk_size);
-            args[i].start=i*chunk_size;
+            args[i].start=(i*chunk_size);
             
             filesize-=chunk_size;          
-         if(pthread_create(&tid[i],NULL,download,(void*)&args)!=0)
+         if(pthread_create(&tid[i],NULL,download,(void*)&args[i])!=0)
         {
             cout<<"Failed to create server request service thread\n";
         }
@@ -1092,6 +1169,7 @@ fflush(stdout);
                 pthread_join(tid[i],NULL);
          }
     cout<<"Downloaded"<<endl;
+    filename_path[str3]=dest;
           send(client, &ack,sizeof(ack), 0); 
     
             }
