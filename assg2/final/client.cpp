@@ -26,7 +26,7 @@ char * ip;
 int logged_in=0;
 char track_ip1[16],track_ip2[16];
 int track_port1,track_port2;
-
+// pthread_mutex_t lock1=PTHREAD_MUTEX_INITIALIZER;
 
 unordered_map<string,string> filename_path; //file name to path
 
@@ -72,9 +72,9 @@ void * service_server(void* args)
  int serv=*((int*)args);
     cout<<"peer server"<<endl;
 
-
+// pthread_mutex_lock(&lock1);
    
-// cout<<"server lock enter"<<endl;
+cout<<"server lock enter"<<endl;
     int flag;int ack;
 
 read(serv,&flag,sizeof(flag));
@@ -90,7 +90,7 @@ read(serv,&flag,sizeof(flag));
         cout<<":"<<buffer1<<endl;
         cout<<endl<<endl;
         // cout<<"client_server flag0 buffer send"<<endl;
-   
+    // pthread_mutex_unlock(&lock1);
     close(serv);
     pthread_exit(NULL);
     }
@@ -104,66 +104,75 @@ read(serv,&flag,sizeof(flag));
        char filename[100];
        memset(filename,0,sizeof(filename));
 
-       
+        // pthread_mutex_lock(&lock1);
        read(serv,&filename,sizeof(filename));
        send(serv,&ack,sizeof(ack),0);
        // cout<<"client_server filename  send"<<endl;
-       
+       //pthread_mutex_unlock(&lock1);
 
-       // cout<<"filename:"<<filename<<endl;
+       cout<<"filename:"<<filename<<endl;
            string filepath=filename_path[filename];
            char  file_path[filepath.length()+1];
            strcpy(file_path,filepath.c_str());
-           // cout<<"filepath:"<<file_path<<endl;
+           cout<<"filepath:"<<file_path<<endl;
 
            int start;
-           
-            read(serv,&start,sizeof(start));
+           //pthread_mutex_lock(&lock1);
+           read(serv,&start,sizeof(start));
             send(serv,&ack,sizeof(ack),0);
             // cout<<"client_server start  send"<<endl;
-           // cout<<"start"<<start<<endl;
+            //pthread_mutex_unlock(&lock1);
+            cout<<"start"<<start<<endl;
 
             int file_size;
-           
            read(serv,&file_size,sizeof(file_size));
             send(serv,&ack,sizeof(ack),0);
+            //pthread_mutex_unlock(&lock1);
             // cout<<"client_server file_size  send"<<endl;
-            // cout<<"file_size"<<file_size<<endl;
+            cout<<"file_size"<<file_size<<endl;
 
 
             char hash[400];
-            memset(hash,0,sizeof(hash));
-             read(serv,&hash,sizeof(hash));
+            //pthread_mutex_lock(&lock1);
+        read(serv,&hash,sizeof(hash));
         send(serv,&ack,sizeof(ack),0);
-            // cout<<"hash server_addr"<<hash<<endl;
+        //pthread_mutex_unlock(&lock1);
+             cout<<"hash server_addr"<<hash<<endl;
 // cout<<"client_server hash  send"<<endl;
    
 
+             //pthread_mutex_lock(&lock1);
              FILE* fp=fopen(file_path,"r");
-            
+             //pthread_mutex_unlock(&lock1);
+
               if (fp==NULL) {perror("open"); exit(-1);}
-              // else{cout<<"file opened"<<endl;}
+              else{cout<<"file opened"<<endl;}
              char buffer[piece_size];
 
+             //pthread_mutex_lock(&lock1);
              fseek(fp, start, SEEK_SET);
+             //pthread_mutex_unlock(&lock1);
              int len=file_size;
-             cout<<"uploading"<<len<<endl;
+             cout<<"downloading"<<len<<endl;
              
              int i=0;
              while(len>0)
              {   
                 int sizee=min(len,piece_size);
-                memset(buffer,0,sizee);
+                // memset(buffer,'\0',sizee);
+                //pthread_mutex_lock(&lock1);
                 int n=fread(&buffer,sizeof(char),sizee,fp);
                  send(serv,buffer,n,0);
                read(serv,&ack,sizeof(ack));
                 len-=n;
                 // cout<<"client_server fread  send"<<n<<ack<<endl;
+                //pthread_mutex_unlock(&lock1);
                 
                 i++;
                 }
 
                 // cout<<"i"<<i<<endl;
+                //pthread_mutex_lock(&lock1);
                  
             fclose(fp);
             char buffer1[256];
@@ -172,6 +181,7 @@ read(serv,&flag,sizeof(flag));
   // cout<<"client_server buffer1  send"<<endl;
   fflush(stdout);
     
+            // pthread_mutex_unlock(&lock1);
             
            cout<<"done"<<endl;
            cout<<endl<<endl;
@@ -201,7 +211,7 @@ void * download(void* args)
     server_addr.sin_port = htons(sp->port); 
     server_addr.sin_addr.s_addr = inet_addr(ip); 
   
-   // cout<<"port"<<sp->port<<endl;
+   cout<<"port"<<sp->port<<endl;
     
     int con = connect(client, (struct sockaddr*) &server_addr, sizeof( server_addr)); 
     if (con <0) 
@@ -209,12 +219,14 @@ void * download(void* args)
      cout<<"connected"<<endl;
      int flag=1,ack=1;
 
-    fflush(stdout);
+     // pthread_mutex_lock(&lock1);
+     fflush(stdout);
    
      // cout<<"client lock enter"<<endl;
      send(client,&flag,sizeof(flag),0);
      read(client,&ack,sizeof(ack));
 //      cout<<"client_cliuent  flag  send"<<endl;
+//      //pthread_mutex_unlock(&lock1);
 // cout<<"client flag"<<flag<<endl;
 
      fflush(stdout);
@@ -224,27 +236,31 @@ void * download(void* args)
      strcpy(filename,file_name.c_str());
      // char buffer1[256];
      //    strcpy(buffer1, "ffffg");
-     // cout<<"filename :"<<filename<<endl;
-     
+     cout<<"filename :"<<filename<<endl;
+     // pthread_mutex_lock(&lock1);
      send(client,&filename,sizeof(filename),0);
     read(client,&ack,sizeof(ack));
     // cout<<"client_cliuent  filename  send"<<endl;
-    
-    // cout<<"filename :"<<filename<<endl;
+    //pthread_mutex_unlock(&lock1);
+    cout<<"filename :"<<filename<<endl;
     fflush(stdout);
 
 
     int start=sp->start;
+    //pthread_mutex_lock(&lock1);
     send(client,&start,sizeof(start),0);
     read(client,&ack,sizeof(ack));
-   // cout<<"start"<<start<<endl;
-   //  // cout<<"client_cliuent  start  send"<<endl;
+    //pthread_mutex_unlock(&lock1);
+    cout<<"start"<<start<<endl;
+    // cout<<"client_cliuent  start  send"<<endl;
 
     int file_size=sp->file_size;
+    //pthread_mutex_lock(&lock1);
     send(client,&file_size,sizeof(file_size),0);
     read(client,&ack,sizeof(ack));
-    // cout<<"file_size"<<file_size<<endl;
-    // // cout<<"client_cliuent  file_size  send"<<endl;
+    //pthread_mutex_unlock(&lock1);
+    cout<<"file_size"<<file_size<<endl;
+    // cout<<"client_cliuent  file_size  send"<<endl;
 
    string hashh=sp->hash;
    // cout<<"hash sp->"<<sp->hash<<endl;
@@ -252,9 +268,11 @@ void * download(void* args)
 
      char hashf[hashh.length()+1];
      strcpy(hashf,hashh.c_str());
+     //pthread_mutex_lock(&lock1);
      send(client,&hashf,sizeof(hashf),0);
     read(client,&ack,sizeof(ack));
-    // cout<<"hash "<<hashf<<endl;
+    //pthread_mutex_unlock(&lock1);
+    cout<<"hash "<<hashf<<endl;
 // cout<<"client_cliuent  hash  send"<<endl;
 
      
@@ -262,58 +280,70 @@ void * download(void* args)
      char dest_path[50];
      strcpy(dest_path,dest.c_str());
 
-// cout<<"dest  "<<dest_path<<endl;
+cout<<"dest  "<<dest_path<<endl;
+//pthread_mutex_lock(&lock1);
      FILE* fp=fopen(dest_path,"w+");
+     //pthread_mutex_unlock(&lock1);
      if (fp==NULL) {perror("open"); exit(-1);}
-       // else{cout<<"file opened"<<endl;}
+       else{cout<<"file opened"<<endl;}
     
      char buffer[piece_size];
 
+        //pthread_mutex_lock(&lock1);
       fseek(fp, start, SEEK_SET);
+      // pthread_mutex_unlock(&lock1);
       int len=file_size;
       cout<<"downloading"<<len<<endl;
 
-                SHA_CTX ctx;
-                SHA1_Init(&ctx);
-                
+
        int i=0;
        while(len>0)
          {
 
+            //pthread_mutex_lock(&lock1);
             int n=read(client,buffer,sizeof(buffer));
             fwrite(&buffer,sizeof(char),n,fp);
             send(client,&ack,sizeof(ack),0);
+            //pthread_mutex_unlock(&lock1);
             // cout<<"buffer"<<buffer<<endl;
              len-=n;
-             SHA1_Update(&ctx, buffer, n);
              memset(buffer,'\0',sizeof(buffer));
              // cout<<"client_cliuent  fwrite  send"<<n<<ack<<endl;
              // cout<<n<<endl;
            i++;
 
           }
-
           // cout<<"i"<<i<<endl;
+          // pthread_mutex_lock(&lock1);
         fclose(fp);
-         // cout<<"downloaded 1"<<endl; 
+        // pthread_mutex_unlock(&lock1);
+         cout<<"downloaded 1"<<endl; 
  
- unsigned char hash[SHA_DIGEST_LENGTH];
-        SHA1_Final(hash, &ctx);
-        char t[2*SHA_DIGEST_LENGTH];
-        for (int i=0; i<SHA_DIGEST_LENGTH; i++)
+
+
+                char copy_content[chunk_size];  ///512kb
+                int nread;
+                string mtorrent="";
+                unsigned char hash[SHA_DIGEST_LENGTH];
+                  int fd = open(dest_path, O_RDONLY);
+                  lseek(fd,start,SEEK_SET);
+                while((nread = read(fd,copy_content,sizeof(copy_content))) > 0) 
+                {
+         
+                SHA1((const unsigned char *)copy_content,nread, hash);
+                char t[2*SHA_DIGEST_LENGTH];
+                 for (int i=0; i<SHA_DIGEST_LENGTH; i++)
                     { snprintf(t+2*i,  sizeof(t)-2*(i), "%02x", hash[i]);
                         }
 
-                
-string mtorrent="";
-            string temp=(string)t;
-                     mtorrent=temp.substr(0,20);
-    cout<<"downloaded "<<endl; 
-    // cout<<hashh<<" "<<mtorrent<<" "<<start<<endl;
-    if( (hashh.compare(mtorrent)) == 0)
+                     mtorrent+=(string)t;
+                 
+            } cout<<mtorrent<<endl;
+            close(fd);
+    cout<<"downloaded 2"<<endl; 
+    if( hashh==mtorrent)
     {
-        sp->start=1;
-        // cout<<"hash matches "<<endl;
+        cout<<"hash matches "<<endl;
     }
     char buffer1[256];
                 strcpy(buffer1, "ffffg");
@@ -417,7 +447,11 @@ int main(int argc, char const *argv[])
     
 
    
-     
+     // if(pthread_mutex_init(&lock1,NULL)!=0)
+     // {
+     //    cout<<"mutex failed"<<endl;
+     //    exit(-1);
+     // }
      
 
 
@@ -502,8 +536,8 @@ int main(int argc, char const *argv[])
             read(client,buffer1,256);
             // cout<<command_list[1]<<endl;
             // cout<<command_list[2]<<endl;
-             memset(str2,0,sizeof(str2));
-              memset(str3,0,sizeof(str3));
+             // memset(str2,'\0',sizeof(str2));
+             //  memset(str3,'\0',sizeof(str3));
             strcpy(str2,command_list[1].c_str());
             strcpy(str3,command_list[2].c_str());
             // fflush(stdin);
@@ -598,8 +632,8 @@ int main(int argc, char const *argv[])
             read(client,buffer1,256);
             // cout<<command_list[1]<<endl;
             // cout<<command_list[2]<<endl;
-              memset(str2,0,sizeof(str2));
-              memset(str3,0,sizeof(str3));
+             // memset(str2,'\0',sizeof(str2));
+             //  memset(str3,'\0',sizeof(str3));
             strcpy(str2,command_list[1].c_str());
            
             // fflush(stdin);
@@ -644,8 +678,8 @@ int main(int argc, char const *argv[])
             read(client,buffer1,256);
             // cout<<command_list[1]<<endl;
             // cout<<command_list[2]<<endl;
-             memset(str2,0,sizeof(str2));
-              memset(str3,0,sizeof(str3));
+             // memset(str2,'\0',sizeof(str2));
+             //  memset(str3,'\0',sizeof(str3));
             strcpy(str2,command_list[1].c_str());
            
             // fflush(stdin);
@@ -731,7 +765,6 @@ else if(strcmp(str1,"list_groups")==0)
             send(client,&flag,sizeof(flag),0);
             read(client,buffer1,256);
              ack=0;
-              memset(str2,0,sizeof(str2));
         strcpy(str2,command_list[1].c_str());
         send(client, str2, strlen(str2), 0);  
         read(client,&ack,sizeof(ack));
@@ -783,7 +816,6 @@ else if(strcmp(str1,"list_groups")==0)
              send(client,&flag,sizeof(flag),0);
             read(client,buffer1,256);
            
-            memset(str2,0,sizeof(str2));
             strcpy(str2,command_list[1].c_str());
            
             
@@ -821,8 +853,6 @@ else if(strcmp(str1,"list_groups")==0)
             read(client,buffer1,256);
             fflush(stdout);
            cout<<buffer1<<endl;
-           memset(str2,0,sizeof(str2));
-           memset(str3,0,sizeof(str3));
                 strcpy(str2,command_list[1].c_str());
                  strcpy(str3,command_list[2].c_str());
                 send(client, str3, strlen(str3), 0);
@@ -901,8 +931,8 @@ else if(strcmp(str1,"list_groups")==0)
                  for (int i=0; i<SHA_DIGEST_LENGTH; i++)
                     { snprintf(t+2*i,  sizeof(t)-2*(i), "%02x", hash[i]);
                         }
-                        string temp=(string)t;
-                     mtorrent+=temp.substr(0,20);
+
+                     mtorrent+=(string)t;
                      chunks++;
     
             }
@@ -958,7 +988,6 @@ else if(strcmp(str1,"accept_request")==0)
             send(client,&flag,sizeof(flag),0);
             read(client,buffer1,256);
              ack=0;
-             memset(str2,0,sizeof(str2));
         strcpy(str2,command_list[1].c_str());
         send(client, str2, strlen(str2), 0);  
         read(client,&ack,sizeof(ack));
@@ -969,7 +998,6 @@ else if(strcmp(str1,"accept_request")==0)
         }
         else
         {
-            memset(str3,0,sizeof(str3));
          strcpy(str3,command_list[2].c_str());
         send(client, str3, strlen(str3), 0);
         read(client, &buffer1, 256);
@@ -1000,7 +1028,6 @@ else if(strcmp(str1,"list_files")==0)
             send(client,&flag,sizeof(flag),0);
             read(client,buffer1,256);
             
-            memset(str2,0,sizeof(str2));
         strcpy(str2,command_list[1].c_str());
         send(client, str2, strlen(str2), 0);  
        
@@ -1049,10 +1076,7 @@ else if(strcmp(str1,"download_file")==0)
             }
             send(client,&flag,sizeof(flag),0);
             read(client,buffer1,256);
-           
-           memset(str2,0,sizeof(str2));
-           memset(str3,0,sizeof(str3));
-           memset(str4,0,sizeof(str4)); 
+            
         strcpy(str2,command_list[1].c_str());
         strcpy(str3,command_list[2].c_str());
         strcpy(str4,command_list[3].c_str());
@@ -1122,13 +1146,12 @@ fflush(stdout);
             // cout<<"hash:"<<args.hash<<endl;
 
             struct down_details args[no_of_chunks];
-             int j=0;
+             
          for(int i=0;i<no_of_chunks;i++)
          {
             args[i].filename=str3;
             args[i].file_out=dest;
-            string temp=(string)hashf;
-            args[i].hash=temp.substr((i*20),20); 
+            args[i].hash=(string)hashf; 
             args[i].port=peer_lists[i%length];   
             cout<<"port "<<i%length<<" :"<<args[i].port<<endl;                    
             args[i].file_size=min(filesize,chunk_size);
@@ -1140,19 +1163,11 @@ fflush(stdout);
             cout<<"Failed to create server request service thread\n";
         }
          }
-         
          for(int i=0;i<no_of_chunks;i++)
          {
 
                 pthread_join(tid[i],NULL);
-                // cout<<args[i].start<<endl;
-                if(args[i].start==1)
-                {j++;}
-             // cout<<j<<endl;
          }
-        
-         if(j==no_of_chunks)
-            {cout<<"hash verified"<<endl;}
     cout<<"Downloaded"<<endl;
     filename_path[str3]=dest;
           send(client, &ack,sizeof(ack), 0); 
@@ -1177,8 +1192,8 @@ else if(strcmp(str1,"logout")==0)
             send(client,&flag,sizeof(flag),0);
             read(client,buffer1,256);
             send(client,&ack,sizeof(ack),0);
-            read(client,buffer1,256);
-            cout<<buffer1<<endl;
+            read(client,buffer2,256);
+            cout<<buffer2<<endl;
             logged_in=0;
             
     
@@ -1187,7 +1202,8 @@ else if(strcmp(str1,"logout")==0)
          }
 
         }
-  else if(strcmp(str1,"stop_share")==0)
+
+else if(strcmp(str1,"stop_share")==0)
         {   
          if(logged_in)
                {         
@@ -1220,13 +1236,6 @@ memset(str3,0,sizeof(str3));
          }
 
         }
-
-
-
-
-
-
-
 else if(strcmp(str1,"show_downloads")==0)
         {   
          if(logged_in)
@@ -1239,32 +1248,24 @@ else if(strcmp(str1,"show_downloads")==0)
             }
             send(client,&flag,sizeof(flag),0);
             read(client,buffer1,256);
+            int length;
+              read(client, &length, sizeof(length)); 
+              send(client, &ack,sizeof(ack), 0); 
+                // cout<<length<<endl; 
 
-            ack=0;
-    int length;
-    read(client, &length, sizeof(length)); 
-    send(client, &ack,sizeof(ack), 0);  
-     while(length--)
-     {
-         
-        read(client, buffer1, 256); 
-        cout<<buffer1<<endl;
-        send(client, &ack,sizeof(ack), 0); 
-        
-     } 
-     
-    read(client, &length, sizeof(length)); 
-    send(client, &ack,sizeof(ack), 0);  
-     while(length--)
-     {
-         
-        read(client, buffer1, 256); 
-        cout<<buffer1<<endl;
-        send(client, &ack,sizeof(ack), 0); 
-        
-     } 
-
+                if(length==0)
+                {
+                    cout<<"no files download"<<endl;
+                    continue;
+                }
+            while(length--)
+             {
+             memset(buffer1,0,sizeof(buffer1));
+            read(client, &buffer1, sizeof(buffer1)); 
+            cout<<buffer1<<endl;
+            send(client, &ack,sizeof(ack), 0); 
             
+            }  
     
             }else{
             cout<<"login first"<<endl;

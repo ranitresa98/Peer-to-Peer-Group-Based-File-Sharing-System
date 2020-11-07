@@ -52,6 +52,12 @@ int size;
 int chunks;
 
 };
+struct download_info
+{
+string group_id;
+string filename;
+string status;
+};
 
 unordered_map<int,int> port_mapper; //port to actual wala
 unordered_map<string,struct user_info> users_list; //username->details
@@ -63,9 +69,10 @@ vector<string> list_groups;                  //group_anmes
 unordered_map<string, unordered_set<string> > group_files;     //group ->filenames
 map<pair<string,string>, struct file_info > file_info_mapp;    //file name->info
 map<pair<string,string>, vector<int> > file_peer;   //group:filename->ports of those who have it
-unordered_map<string,string> filename_path; //file name to path
-vector<pair<string,string>> downloading_list; //////downloading_list
-set<pair<string,string>> downloaded_list; //////downloaded_list
+
+unordered_map<int,vector<struct download_info>> download_file_list;  //port ->download_details
+
+
 
 void * inform_user_added(void* args)
 {
@@ -286,16 +293,7 @@ port_mapper[port]=real_port;
                                 
                                group_users[group_id].erase(remove(group_users[group_id].begin(), group_users[group_id].end(), port),group_users[group_id].end());
                                 strcpy(buffer1, "Group leaved");
-                               for(auto j=group_files[group_id].begin();j!=group_files[group_id].end();j++)
-                                {
-                                     file_peer[{group_id,*j}].erase(remove(file_peer[{group_id,*j}].begin(), file_peer[{group_id,*j}].end(), real_port),file_peer[{group_id,*j}].end());
-                                    if(file_peer[{group_id,*j}].size()==0)
-                                        {group_files[group_id].erase(*j);}
-
-                               }
-
-
-
+                                // cout<<"list:"<<pending_group_request[group_id].size()<<endl;
                                 cout<<"Group leaved";
                               }
                                 
@@ -592,35 +590,31 @@ port_mapper[port]=real_port;
                                     // strcpy(buffer1, "ffffg");
                                      send(client_socket, &hashf, sizeof(hashf), 0);
                                       // cout<<"download_files send"<<endl;
-                                     cout<<"hash"<<hashf<<endl;
-                                     downloading_list.PB({group_id,filename});
+                                    cout<<"hash"<<hashf<<endl;
 
-                                     sleep(100000);
 
-                                        // auto p = make_pair(group_id,filename);
-                                    //   auto i=find (downloading_list.begin(), downloading_list.end(), p);
-                                    auto i= downloading_list.begin();
-                                    for( ; i!=downloading_list.end(); i++ ){ 
-                                    if(i->first == group_id && i->second == filename){ 
-                                             break;
-                                        } 
-                                    }
+                                    download_info a;
+                                    a.group_id=group_id;
+                                    a.filename=filename;
+                                    a.status="D";
+                                    download_file_list[port].push_back(a);
 
-                                    
 
-                                     downloading_list.erase(i);
-                                     downloaded_list.insert({group_id,filename});
+
+
                                     read(client_socket,&ack,sizeof(ack));
+
+                                    a.status="C";
+                                    download_file_list[port].pop_back();
+                                    download_file_list[port].push_back(a);
                                     file_peer[{group_id,filename}].PB(real_port);
                                      cout<<"Downloaded"<<endl;
-
                                 } 
 
                                 break;
                             }
 
-
-                                case 12:                ///////logout
+                               case 12:                ///////logout
                             {
                               
                              
@@ -637,44 +631,42 @@ port_mapper[port]=real_port;
                                 break;
                             }
 
+
                                 case 13:                ///////Show_downloads:
                             {
-                              int length1=downloading_list.size();
-                                send(client_socket, &length1, sizeof(length1),0);
-                                 read(client_socket,&ack,sizeof(ack));
-                                for (auto i=downloading_list.begin();i!=downloading_list.end();i++)
-                                {
-                                    string gid=i->first;
-                                    string filee=i->second;
 
-                                    string gid_filee="[D]["+gid+"]"+filee;
-                                    cout<<gid_filee;
+                               int length=download_file_list[port].size();
+                               send(client_socket, &length, sizeof(length), 0); 
+                                     // cout<<"download_files send"<<endl;                                   
+                                    read(client_socket,&ack,sizeof(ack));
+                                    // cout<<"length"<<length<<endl;
+
+                                    if(length!=0)
+                                {        
+                                  for (auto i=download_file_list[port].begin();i!=download_file_list[port].end();i++)
+                                    {
+                                      string gid=i->group_id;
+                                    string filee=i->filename;
+                                    string st=i->status;
+                                    string gid_filee="["+st+"]["+gid+"]"+filee;
+                                    cout<<gid_filee<<endl;
                                     strcpy(buffer1, gid_filee.c_str());
                                     send(client_socket, buffer1, 256, 0);
-                                    read(client_socket,&ack,sizeof(ack));
-                                }
-                                int length2=downloaded_list.size();
-                                send(client_socket, &length2, sizeof(length2),0);
-                                 read(client_socket,&ack,sizeof(ack));
-                                for (auto i=downloaded_list.begin();i!=downloaded_list.end();i++)
-                                {
-                                    string gid=i->first;
-                                    string filee=i->second;
-
-                                    string gid_filee="[C]["+gid+"]"+filee;
-                                    cout<<gid_filee;
-                                    strcpy(buffer1, gid_filee.c_str());
-                                    send(client_socket, buffer1, 256, 0);
-                                    read(client_socket,&ack,sizeof(ack));
-                                }
-
-
+                                       read(client_socket,&ack,sizeof(ack));
+                                    }
                                 
-                               
+                               }
                                 break;
                             }
 
-                              case 14:                ///////stop share
+
+
+
+
+
+
+
+                                 case 14:                ///////stop share
                             {
                               
                              
@@ -713,7 +705,6 @@ port_mapper[port]=real_port;
                                
                                 break;
                             }
-
 
                         default:
                               {  break;}
